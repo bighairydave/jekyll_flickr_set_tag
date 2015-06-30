@@ -20,16 +20,16 @@ There are two ways of specifying a set for reasons of backwards compatibility.
 
 Default Configuration (override in _config.yml):
 
-  flickr_set:
-    gallery_tag:   'p'
-    gallery_class: 'gallery'
-    a_href:        nil
-    a_target:      '_blank'
-    image_rel:     ''
-    image_size:    's'
-    api_key:       ''
-    user:          '' 
-    user_id:       ''
+    flickr_set:  
+      gallery_tag:   'p'  
+      gallery_class: 'gallery'  
+      a_href:        nil  
+      a_target:      '_blank'  
+      image_rel:     ''  
+      image_size:    's'  
+      api_key:       ''  
+      user:          ''  
+      user_id:       ''  
 
 By default, thumbnails are linked to their corresponding Flickr page.
 If you override a_href with a size ('s', 'm', etc), the thumbnail will
