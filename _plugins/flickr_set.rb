@@ -1,14 +1,22 @@
 # Flickr Set Tag.
 #
-# Generates image galleries from a Flickr set.
+# Generates image galleries from a Flickr set or a Flickr tag.
 #
 # Usage:
 #
 #   {% flickr_set flickr_set_id %}
+# or:
+#   {% flickr_set set: flickr_set_id %}
+# or:
+#   {% flickr_set tag: flickr_tag %}
 #
-# Example:
+# Examples:
 #
 #   {% flickr_set 72157625102245887 %}
+#   {% flickr_set set: 72157625102245887 %}
+#   {% flickr_set tag: birds %}
+#
+#   There are two ways of specifying a set for reasons of backwards compatibility.
 #
 # Default Configuration (override in _config.yml):
 #
@@ -20,6 +28,8 @@
 #     image_rel:     ''
 #     image_size:    's'
 #     api_key:       ''
+#     user:          '' this is your 'friendly' username, i.e. the one that appears in the url of your photos
+#     user_id:       '' this is your NSID: use http://idgettr.com to find it if necessary
 #
 # By default, thumbnails are linked to their corresponding Flickr page.
 # If you override a_href with a size ('s', 'm', etc), the thumbnail will
@@ -28,7 +38,7 @@
 #
 # You must provide an API Key in order to query Flickr. It must be configured in _config.yml.
 #
-# Author: Thomas Mango
+# Original Author: Thomas Mango
 # Site: http://thomasmango.com
 # Plugin Source: http://github.com/tsmango/jekyll_flickr_set_tag
 # Site Source: http://github.com/tsmango/thomasmango.com
@@ -40,10 +50,18 @@ require 'json'
 
 module Jekyll
   class FlickrSetTag < Liquid::Tag
-    def initialize(tag_name, config, token)
+    def initialize(tag_name, params, token)
       super
+      # process parameters
 
-      @set  = config.strip
+      if params.include? ':'
+        @params = Hash[*params.split(/(?:: *)|(?:, *)/)]
+        @set  = @params['set'].strip  if @params['set']
+        @tags = @params['tag'].strip  if @params['tag']
+      else
+        @set = params.strip
+      end
+
 
       @config = Jekyll.configuration({})['flickr_set'] || {}
 
@@ -55,6 +73,7 @@ module Jekyll
       @config['image_size']    ||= 's'
       @config['api_key']       ||= ''
       @config['user']          ||= ''
+      @config['user_id']       ||= ''
     end
 
     def render(context)
@@ -73,15 +92,23 @@ module Jekyll
 
     def photos
       @photos = Array.new
-      JSON.parse(json)['photoset']['photo'].each do |item|
-        @photos << FlickrPhoto.new(item['title'], item['id'], item['secret'], item['server'], item['farm'], @config['image_size'], item['url_k'], item['url_o'], item['link'], @config['user'])
+      if @set
+        JSON.parse(json)['photoset']['photo'].each do |item|
+          @photos << FlickrPhoto.new(item['title'], item['id'], item['secret'], item['server'], item['farm'], @config['image_size'], item['url_k'], item['url_o'], item['link'], @config['user'])
+        end       
+      end
+      if @tags
+        JSON.parse(json)['photos']['photo'].each do |item|
+          @photos << FlickrPhoto.new(item['title'], item['id'], item['secret'], item['server'], item['farm'], @config['image_size'], item['url_k'], item['url_o'], item['link'], @config['user'])
+        end       
       end
 
       @photos.sort
     end
 
     def json
-      uri  = URI.parse("https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos&photoset_id=#{@set}&api_key=#{@config['api_key']}&extras=url_k,url_o&format=json&nojsoncallback=1")
+      uri  = URI.parse("https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos&photoset_id=#{@set}&api_key=#{@config['api_key']}&extras=url_k,url_o&format=json&nojsoncallback=1") if @set
+      uri  = URI.parse("https://api.flickr.com/services/rest/?method=flickr.photos.search&tags=#{@tags}&user_id=#{@config['user_id']}&api_key=#{@config['api_key']}&extras=url_k,url_o&format=json&nojsoncallback=1") if @tags
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       return http.request(Net::HTTP::Get.new(uri.request_uri)).body
@@ -94,7 +121,7 @@ module Jekyll
       @url            = "https://farm#{farm}.staticflickr.com/#{server}/#{id}_#{secret}.jpg"
       @link           = "http://www.flickr.com/photos/#{user}/#{id}"
       @thumbnail_url  = url.gsub(/\.jpg/i, "_#{thumbnail_size}.jpg")
-      @thumbnail_size = thumbnail_size
+    @thumbnail_size = thumbnail_size
       @url_k = url_k
       @url_o = url_o
     end
