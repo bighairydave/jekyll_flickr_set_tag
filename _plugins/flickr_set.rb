@@ -54,13 +54,14 @@ module Jekyll
       @config['image_rel']     ||= ''
       @config['image_size']    ||= 's'
       @config['api_key']       ||= ''
+      @config['user']          ||= ''
     end
 
     def render(context)
       html = "<#{@config['gallery_tag']} class=\"#{@config['gallery_class']}\">"
 
       photos.each do |photo|
-        html << "<a href=\"#{photo.url(@config['a_href'])}\" target=\"#{@config['a_target']}\">"
+        html << "<a href=\"#{photo.url(@config['a_href'])}\" target=\"#{@config['a_target']}\" title=\"#{photo.title}\" data-uri=\"#{photo.link}\">"
         html << "  <img src=\"#{photo.thumbnail_url}\" rel=\"#{@config['image_rel']}\"/>"
         html << "</a>"
       end
@@ -72,16 +73,15 @@ module Jekyll
 
     def photos
       @photos = Array.new
-
       JSON.parse(json)['photoset']['photo'].each do |item|
-        @photos << FlickrPhoto.new(item['title'], item['id'], item['secret'], item['server'], item['farm'], @config['image_size'])
+        @photos << FlickrPhoto.new(item['title'], item['id'], item['secret'], item['server'], item['farm'], @config['image_size'], item['url_k'], item['url_o'], item['link'], @config['user'])
       end
 
       @photos.sort
     end
 
     def json
-      uri  = URI.parse("https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos&photoset_id=#{@set}&api_key=#{@config['api_key']}&format=json&nojsoncallback=1")
+      uri  = URI.parse("https://api.flickr.com/services/rest/?method=flickr.photosets.getPhotos&photoset_id=#{@set}&api_key=#{@config['api_key']}&extras=url_k,url_o&format=json&nojsoncallback=1")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       return http.request(Net::HTTP::Get.new(uri.request_uri)).body
@@ -89,12 +89,14 @@ module Jekyll
   end
 
   class FlickrPhoto
-
-    def initialize(title, id, secret, server, farm, thumbnail_size)
+    def initialize(title, id, secret, server, farm, thumbnail_size, url_k, url_o, link, user)
       @title          = title
-      @url            = "http://farm#{farm}.staticflickr.com/#{server}/#{id}_#{secret}.jpg"
+      @url            = "https://farm#{farm}.staticflickr.com/#{server}/#{id}_#{secret}.jpg"
+      @link           = "http://www.flickr.com/photos/#{user}/#{id}"
       @thumbnail_url  = url.gsub(/\.jpg/i, "_#{thumbnail_size}.jpg")
       @thumbnail_size = thumbnail_size
+      @url_k = url_k
+      @url_o = url_o
     end
 
     def title
@@ -105,8 +107,16 @@ module Jekyll
       return (size_override ? @thumbnail_url.gsub(/_#{@thumbnail_size}.jpg/i, "_#{size_override}.jpg") : @url)
     end
 
+    def url_k
+      @url_k
+    end
+
     def thumbnail_url
       return @thumbnail_url
+    end
+
+    def link
+      return @link
     end
 
     def <=>(photo)
